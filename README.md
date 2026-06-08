@@ -13,6 +13,7 @@ Node.js 22, TypeScript, Fastify, PostgreSQL, SQL migrations, Docker Compose, and
 - `ADRs/` contains the decision records for design review.
 - `writeup.md` covers scale, adoption, and production follow-up work.
 - `postman/` contains the importable Postman collection.
+- `deployment/` contains VM bootstrap support for the Azure-hosted demo.
 - `docker-compose.prod.yml` runs the hosted demo stack with Postgres, API, and Nginx-served frontend.
 
 ## Run Locally
