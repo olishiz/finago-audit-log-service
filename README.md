@@ -2,6 +2,10 @@
 
 Tech Lead case implementation for a shared audit log service.
 
+# Deployment URL
+
+Azure URL: http://finago-audit-myw-0608b.malaysiawest.cloudapp.azure.com/
+
 ## Stack
 
 Node.js 22, TypeScript, Fastify, PostgreSQL, SQL migrations, Docker Compose, and the Node test runner.
