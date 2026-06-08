@@ -45,6 +45,12 @@ npm run frontend:dev
 
 ## Hosted Demo
 
+Current Azure demo URL:
+
+```text
+http://finago-audit-myw-0608b.malaysiawest.cloudapp.azure.com/
+```
+
 The production compose file is intended for a small Linux VM demo:
 
 ```bash
