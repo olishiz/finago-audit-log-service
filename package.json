@@ -1,0 +1,48 @@
+{
+  "name": "finago-audit-log-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run backend:build && npm run frontend:build",
+    "dev": "npm run backend:dev",
+    "start": "npm run backend:start",
+    "migrate": "npm run backend:migrate",
+    "seed": "npm run backend:seed",
+    "test": "npm run backend:test",
+    "backend:build": "tsc -p backend/tsconfig.json",
+    "backend:dev": "tsx watch backend/src/server.ts",
+    "backend:start": "node dist/backend/src/server.js",
+    "backend:migrate": "tsx backend/src/migrate.ts",
+    "backend:seed": "tsx backend/src/seed.ts",
+    "backend:test": "node --import tsx --test backend/test/*.test.ts",
+    "frontend:dev": "vite --config frontend/vite.config.ts --host 0.0.0.0 --port 5173",
+    "frontend:build": "vite build --config frontend/vite.config.ts",
+    "web:dev": "npm run frontend:dev",
+    "web:build": "npm run frontend:build"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "lucide-react": "^1.17.0",
+    "pg": "^8.13.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-joyride": "^3.1.0",
+    "sweetalert2": "^11.26.25",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^8.0.16"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

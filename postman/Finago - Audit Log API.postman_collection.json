@@ -1,0 +1,396 @@
+{
+  "info": {
+    "_postman_id": "4a72f9ad-4f1a-4e20-9f1b-6f08fb8cf001",
+    "name": "Finago - Audit Log API",
+    "description": "Postman collection for the Finago Audit Log Service take-home case. Run the local API with `npm run dev` before sending these requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "firm-helsinki",
+      "type": "string"
+    },
+    {
+      "key": "nordicTenantId",
+      "value": "firm-nordic",
+      "type": "string"
+    },
+    {
+      "key": "locale",
+      "value": "en",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "evt-postman-demo",
+      "type": "string"
+    },
+    {
+      "key": "correlationId",
+      "value": "corr-postman-demo",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "order-postman-demo",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "customer-postman-demo",
+      "type": "string"
+    },
+    {
+      "key": "lastEventId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastCorrelationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "nextCursor",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Checks that the API can connect to PostgreSQL."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('health is ok', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingest Order Updated Event",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;",
+              "pm.collectionVariables.set('eventId', `evt-postman-${suffix}`);",
+              "pm.collectionVariables.set('correlationId', `corr-postman-${suffix}`);",
+              "pm.collectionVariables.set('orderId', `order-postman-${suffix}`);",
+              "pm.collectionVariables.set('customerId', `customer-postman-${suffix}`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('event created', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.created).to.eql(true);",
+              "  pm.expect(body.event.eventId).to.eql(pm.collectionVariables.get('eventId'));",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('lastEventId', body.event.eventId);",
+              "pm.collectionVariables.set('lastCorrelationId', body.event.correlationId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"eventType\": \"order.updated\",\n  \"eventVersion\": 1,\n  \"occurredAt\": \"{{$isoTimestamp}}\",\n  \"actor\": {\n    \"type\": \"support\",\n    \"id\": \"support-kl-postman\",\n    \"displayName\": \"KL Support Demo\"\n  },\n  \"action\": \"updated\",\n  \"aggregate\": {\n    \"type\": \"order\",\n    \"id\": \"{{orderId}}\",\n    \"displayName\": \"{{orderId}}\"\n  },\n  \"source\": {\n    \"service\": \"order-support\",\n    \"region\": \"my-kul-1\"\n  },\n  \"correlationId\": \"{{correlationId}}\",\n  \"subjectRefs\": [\n    {\n      \"type\": \"customer\",\n      \"id\": \"{{customerId}}\"\n    }\n  ],\n  \"payload\": {\n    \"fieldsChanged\": [\"status\"],\n    \"before\": {\n      \"status\": \"missing\"\n    },\n    \"after\": {\n      \"status\": \"restored\"\n    }\n  },\n  \"retentionUntil\": \"2033-06-08\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/events",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ]
+        },
+        "description": "Creates a fresh order audit event and stores its IDs as collection variables for follow-up requests."
+      }
+    },
+    {
+      "name": "Retry Last Event - Idempotency",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('retry returns existing event without duplicate', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.created).to.eql(false);",
+              "  pm.expect(body.event.eventId).to.eql(pm.collectionVariables.get('eventId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventId\": \"{{eventId}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"eventType\": \"order.updated\",\n  \"eventVersion\": 1,\n  \"occurredAt\": \"{{$isoTimestamp}}\",\n  \"actor\": {\n    \"type\": \"support\",\n    \"id\": \"support-kl-postman\",\n    \"displayName\": \"KL Support Demo\"\n  },\n  \"action\": \"updated\",\n  \"aggregate\": {\n    \"type\": \"order\",\n    \"id\": \"{{orderId}}\",\n    \"displayName\": \"{{orderId}}\"\n  },\n  \"source\": {\n    \"service\": \"order-support\",\n    \"region\": \"my-kul-1\"\n  },\n  \"correlationId\": \"{{correlationId}}\",\n  \"subjectRefs\": [\n    {\n      \"type\": \"customer\",\n      \"id\": \"{{customerId}}\"\n    }\n  ],\n  \"payload\": {\n    \"fieldsChanged\": [\"status\"],\n    \"before\": {\n      \"status\": \"missing\"\n    },\n    \"after\": {\n      \"status\": \"restored\"\n    }\n  },\n  \"retentionUntil\": \"2033-06-08\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/events",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ]
+        },
+        "description": "Replays the previous event ID to show the API returns the existing row instead of creating a duplicate."
+      }
+    },
+    {
+      "name": "Query Events - Tenant Table",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('query returns event array', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.data).to.be.an('array');",
+              "  if (body.nextCursor) {",
+              "    pm.collectionVariables.set('nextCursor', body.nextCursor);",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events?tenantId={{tenantId}}&locale={{locale}}&limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "tenantId",
+              "value": "{{tenantId}}"
+            },
+            {
+              "key": "locale",
+              "value": "{{locale}}"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Lists the latest audit events for the selected tenant."
+      }
+    },
+    {
+      "name": "Query Events - Last Correlation Group",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events?tenantId={{tenantId}}&locale={{locale}}&correlationId={{correlationId}}&limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "tenantId",
+              "value": "{{tenantId}}"
+            },
+            {
+              "key": "locale",
+              "value": "{{locale}}"
+            },
+            {
+              "key": "correlationId",
+              "value": "{{correlationId}}"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Finds all audit rows linked to the latest Postman-created request group."
+      }
+    },
+    {
+      "name": "Query Events - GDPR Subject Lookup",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events?tenantId={{tenantId}}&locale=fi-FI&subjectType=customer&subjectId={{customerId}}&limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "tenantId",
+              "value": "{{tenantId}}"
+            },
+            {
+              "key": "locale",
+              "value": "fi-FI"
+            },
+            {
+              "key": "subjectType",
+              "value": "customer"
+            },
+            {
+              "key": "subjectId",
+              "value": "{{customerId}}"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Shows how a data subject lookup can find customer-related events and render Finnish summaries."
+      }
+    },
+    {
+      "name": "Query Events - Order Aggregate",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events?tenantId={{tenantId}}&locale={{locale}}&aggregateType=order&aggregateId={{orderId}}&limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "tenantId",
+              "value": "{{tenantId}}"
+            },
+            {
+              "key": "locale",
+              "value": "{{locale}}"
+            },
+            {
+              "key": "aggregateType",
+              "value": "order"
+            },
+            {
+              "key": "aggregateId",
+              "value": "{{orderId}}"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "description": "Finds audit events for a specific order aggregate."
+      }
+    },
+    {
+      "name": "Query Seeded Complex Action - Swedish",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/events?tenantId={{nordicTenantId}}&locale=sv-SE&correlationId=corr-employee-204-deactivation&limit=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "tenantId",
+              "value": "{{nordicTenantId}}"
+            },
+            {
+              "key": "locale",
+              "value": "sv-SE"
+            },
+            {
+              "key": "correlationId",
+              "value": "corr-employee-204-deactivation"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Requires `npm run seed`. Shows the employee deactivation flow with derived session and payroll events rendered in Swedish."
+      }
+    }
+  ]
+}
